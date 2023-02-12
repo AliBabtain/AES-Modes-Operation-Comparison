@@ -30,10 +30,13 @@ This will generate the encryption and decryption results, and plot the compariso
 ## Output:
 
 **Encryption Modes Performance:**
+
 <img width="639" alt="Encryption Modes Performance" src="https://user-images.githubusercontent.com/42214099/218317070-8b54e755-128a-4eec-a518-677a5b19e37c.png">
 
 **Decryption Modes Performance:**
+
 <img width="639" alt="Decryption Modes Performance" src="https://user-images.githubusercontent.com/42214099/218317091-ac93878f-7c41-41a3-a28e-177b9ae903f0.png">
 
 **Terminal output:**
+
 <img width="737" alt="Terminal output" src="https://user-images.githubusercontent.com/42214099/218317098-b1c7e20c-ff11-41d1-99d7-2f6d8cee4c1f.png">
