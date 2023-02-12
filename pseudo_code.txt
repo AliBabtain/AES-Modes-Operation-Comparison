@@ -1,0 +1,144 @@
+IMPORT os
+IMPORT matplotlib.pyplot as plt
+from cryptography.hazmat.primitives.ciphers IMPORT Cipher, algorithms, modes
+from cryptography.hazmat.backends IMPORT default_backend
+from cryptography.hazmat.primitives IMPORT padding
+IMPORT binascii
+from termcolor IMPORT colored
+IMPORT timeit
+
+DEFINE FUNCTION generate_key(key_size):
+    RETURN os.urandom(key_size // 4)
+
+DEFINE FUNCTION encrypt_data(mode, key, data, iv):
+    IF mode EQUALS "gcm":
+        SET cipher TO Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+        SET padder TO padding.PKCS7(128).padder()
+        SET padded_data TO padder.update(data) + padder.finalize()
+        SET encryptor TO cipher.encryptor()
+        RETURN (encryptor.update(padded_data) + encryptor.finalize(), encryptor.tag)
+    ELSE:
+        SET cipher TO Cipher(algorithms.AES(key), modes.CBC(iv) IF mode EQUALS "cbc" else modes.CTR(iv), backend=default_backend())
+    SET padder TO padding.PKCS7(128).padder()
+    SET padded_data TO padder.update(data) + padder.finalize()
+    SET encryptor TO cipher.encryptor()
+    RETURN  encryptor.update(padded_data) + encryptor.finalize()
+
+DEFINE FUNCTION decrypt_data(mode, key, encrypted_data, iv , tag):
+    IF mode EQUALS "gcm":
+        SET cipher TO Cipher(algorithms.AES(key), modes.GCM(iv,tag),backend=default_backend())
+        SET decryptor TO cipher.decryptor()
+        SET padded_data TO decryptor.update(encrypted_data) + decryptor.finalize()
+        SET unpadder TO padding.PKCS7(128).unpadder()
+        RETURN  unpadder.update(padded_data) + unpadder.finalize()
+    IF mode EQUALS "cbc":
+        SET cipher TO Cipher(algorithms.AES(key), modes.CBC(iv),backend=default_backend())
+        SET decryptor TO cipher.decryptor()
+        SET padded_data TO decryptor.update(encrypted_data) + decryptor.finalize()
+        SET unpadder TO padding.PKCS7(128).unpadder()
+        RETURN unpadder.update(padded_data) + unpadder.finalize()
+    IF mode EQUALS "ctr":
+        SET cipher TO Cipher(algorithms.AES(key), modes.CTR(iv),backend=default_backend())
+        SET decryptor TO cipher.decryptor()
+        SET padded_data TO decryptor.update(encrypted_data) + decryptor.finalize()
+        SET unpadder TO padding.PKCS7(128).unpadder()
+        RETURN unpadder.update(padded_data) + unpadder.finalize()
+    RETURN
+
+DEFINE FUNCTION OUTPUT_enc_data(mode, enc_time, data):
+    OUTPUT(colored('Encrypted data: ', 'light_cyan', attrs=["bold"]) + colored(str(binascii.hexlify(data)), 'light_yellow'))
+    OUTPUT(colored('Encrytpion Time: ', 'light_cyan', attrs=["bold"]) + colored(str(enc_time) + " ms", 'light_grey') + "\n")
+
+DEFINE FUNCTION OUTPUT_dec_data(mode, dec_time, data):
+    OUTPUT(colored('Decrypted data: ', 'light_cyan', attrs=["bold"]) + colored(str(data), 'light_green'))
+    OUTPUT(colored('Decrytpion Time: ', 'light_cyan', attrs=["bold"]) + colored(str(dec_time) + " ms", 'light_grey'))
+
+DEFINE FUNCTION plot_Modes(gcm_enc_time, cbc_enc_time, ctr_enc_time, gcm_dec_time, cbc_dec_time, ctr_dec_time, num_repeated_test):
+    # Plot results
+    SET fig1, ax1 TO plt.subplots()
+    ax1.bar(["GCM", "CBC","CTR"], [gcm_enc_time , cbc_enc_time, ctr_enc_time], color=["Maroon", "blue", "Teal"])
+    ax1.set_xlabel("Encryption Modes(Number of test:"+str(num_repeated_test)+ ")")
+    ax1.set_ylabel("Time (milliseconds)")
+    ax1.set_title("Encryption Modes Comparison")
+    ax1.set_ylim(0.000, 5)
+    FOR i, v IN enumerate([gcm_enc_time, cbc_enc_time, ctr_enc_time]):
+        ax1.annotate(format(v, '.3f'), xy=(i, v), xycoords='data',
+                xytext=(0, 20), textcoords='offset points',
+                ha='center', va='bottom',
+                fontweight='bold')
+    SET fig2, ax2 TO plt.subplots()
+    ax2.bar(["GCM", "CBC","CTR"], [gcm_dec_time , cbc_dec_time, ctr_dec_time], color=["Maroon", "blue", "Teal"])
+    ax2.set_xlabel("Decryption Modes(Number of test:"+str(num_repeated_test)+ ")")
+    ax2.set_ylabel("Time (milliseconds)")
+    ax2.set_title("Decryption Modes Comparison")
+    ax2.set_ylim(0.000, 5)
+    FOR i, v IN enumerate([gcm_dec_time, cbc_dec_time, ctr_dec_time]):
+        ax2.annotate(format(v, '.3f'), xy=(i, v), xycoords='data',
+                xytext=(0, 20), textcoords='offset points',
+                ha='center', va='bottom',
+                fontweight='bold')
+    plt.show()
+
+IF __name__ EQUALS "__main__":
+    SET key TO generate_key(128)
+    SET iv TO os.urandom(16)
+    SET num_repeated_test TO 20
+    SET gcm_enc_time TO None
+    SET cbc_enc_time TO None
+    SET ctr_enc_time TO None
+    SET gcm_dec_time TO None
+    SET cbc_dec_time TO None
+    SET ctr_dec_time TO None
+    SET data TO b"This is some secret data"
+
+    OUTPUT(colored('\n*********************** (', 'light_grey', attrs=["bold"]) + colored('PLAIN-TEXT', 'light_green', attrs=["bold"]) + colored(') **********************', 'light_grey', attrs=["bold"]))
+    OUTPUT(colored('Data: ', 'light_cyan', attrs=["bold"]) + colored(str(data), 'light_green'))
+
+    SET mode TO "gcm"
+    OUTPUT(colored('\n\n*********************** (', 'light_grey', attrs=["bold"]) + colored('GALOIS/COUNTER MODE', 'light_red', attrs=["bold"]) + colored(') **********************', 'light_grey', attrs=["bold"]))
+    SET encrypted_data, tag TO encrypt_data(mode, key, data , iv)
+    SET gcm_enc_time TO timeit.timeit(stmt='encrypt_data(mode, key, data , iv)', globals=globals(), number=num_repeated_test)
+    SET gcm_enc_time TO gcm_enc_time * 1000
+    OUTPUT_enc_data(mode, gcm_enc_time, encrypted_data)
+    SET decrypted_data TO decrypt_data(mode, key, encrypted_data , iv, tag)
+    SET gcm_dec_time TO timeit.timeit(stmt='decrypt_data(mode, key, encrypted_data , iv, tag)', globals=globals(), number=num_repeated_test)
+    SET gcm_dec_time TO gcm_dec_time * 1000
+    OUTPUT_dec_data(mode, gcm_dec_time, decrypted_data)
+
+    SET mode TO "cbc"
+    OUTPUT(colored('\n\n*********************** (', 'light_grey', attrs=["bold"]) + colored('CIPHER-BLOCK CHAINING', 'light_red', attrs=["bold"]) + colored(') **********************', 'light_grey', attrs=["bold"]))
+    SET encrypted_data TO encrypt_data(mode, key, data , iv)
+    SET cbc_enc_time TO timeit.timeit(stmt='encrypt_data(mode, key, data , iv)', globals=globals(), number=num_repeated_test)
+    SET cbc_enc_time TO cbc_enc_time * 1000
+    OUTPUT_enc_data(mode, cbc_enc_time, encrypted_data)
+    SET decrypted_data TO decrypt_data(mode, key, encrypted_data , iv , tag)
+    SET cbc_dec_time TO timeit.timeit(stmt='decrypt_data(mode, key, encrypted_data , iv, tag)', globals=globals(), number=num_repeated_test)
+    SET cbc_dec_time TO cbc_dec_time * 1000
+    OUTPUT_dec_data(mode, cbc_dec_time, decrypted_data)
+
+    SET mode TO "ctr"
+    OUTPUT(colored('\n\n*********************** (', 'light_grey', attrs=["bold"]) + colored('COUNTER', 'light_red', attrs=["bold"]) + colored(') **********************', 'light_grey', attrs=["bold"]))
+    SET encrypted_data TO encrypt_data(mode, key, data , iv)
+    SET ctr_enc_time TO timeit.timeit(stmt='encrypt_data(mode, key, data , iv)', globals=globals(), number=num_repeated_test)
+    SET ctr_enc_time TO ctr_enc_time * 1000
+    OUTPUT_enc_data(mode, ctr_enc_time, encrypted_data)
+    SET decrypted_data TO decrypt_data(mode, key, encrypted_data , iv, tag)
+    SET ctr_dec_time TO timeit.timeit(stmt='decrypt_data(mode, key, encrypted_data , iv, tag)', globals=globals(), number=num_repeated_test)
+    SET ctr_dec_time TO ctr_dec_time * 1000
+    OUTPUT_dec_data(mode, ctr_dec_time, decrypted_data)
+    plot_Modes(gcm_enc_time, cbc_enc_time, ctr_enc_time, gcm_dec_time, cbc_dec_time, ctr_dec_time, num_repeated_test)
+
+
+
+
+
+
+
+
+
+    
+
+
+
+   
+
